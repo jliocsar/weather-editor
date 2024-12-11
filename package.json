@@ -1,0 +1,23 @@
+{
+  "name": "weather-editor",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "dev": "civet index.civet"
+  },
+  "type": "module",
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "devDependencies": {
+    "@danielx/civet": "^0.9.0",
+    "@types/node": "^22.10.1"
+  },
+  "dependencies": {
+    "get-image-pixels": "^1.0.1",
+    "get-rgba-palette": "^2.0.1",
+    "jimp": "^1.6.0",
+    "remove": "^0.1.5"
+  }
+}

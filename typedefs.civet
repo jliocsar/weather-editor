@@ -1,0 +1,53 @@
+export type WeatherName =
+| 'w_clear1' | 'w_clear2'
+| 'w_cloudy1' | 'w_cloudy2_dark' | 'w_cloudy3' | 'w_cloudy3_dark'
+| 'w_foggy1' | 'w_foggy2' | 'w_foggy3'
+| 'w_indoor_agr_underground' | 'w_indoor_ambient' | 'w_indoor_default' | 'w_indoor_jupiter_underground' | 'w_indoor_sarcofag'
+| 'w_partly1' | 'w_partly2'
+| 'w_rain1' | 'w_rain2' | 'w_rain3'
+| 'w_storm1' | 'w_storm2'
+| (string & {})
+
+type Hour = '00' | '01' | '02' | '03' | '04' | '05' | '06' | '07' | '08' | '09' | '10' | '11' | '12' | '13' | '14' | '15' | '16' | '17' | '18' | '19' | '20' | '21' | '22' | '23' 
+type Minute = '00' | '01' | '02' | '03' | '04' | '05' | '06' | '07' | '08' | '09' | '10' | '11' | '12' | '13' | '14' | '15' | '16' | '17' | '18' | '19' | '20' | '21' | '22' | '23' | '24' | '25' | '26' | '27' | '28' | '29' | '30' | '31' | '32' | '33' | '34' | '35' | '36' | '37' | '38' | '39' | '40' | '41' | '42' | '43' | '44' | '45' | '46' | '47' | '48' | '49' | '50' | '51' | '52' | '53' | '54' | '55' | '56' | '57' | '58' | '59'
+
+export type WeatherTime = `${Hour}:${Minute}`
+export type Int = number
+export type Float = number
+export type TextureFilePath = string
+export type EnumLike = string
+export type FloatZeroToOneRange = number
+export type Vector3 = [number, number, number]
+export type Vector4 = [number, number, number, number]
+export type ColorVector3 = [R: number, G: number, B: number]
+export type ColorVector4 = [R: number, G: number, B: number, A: number]
+
+export type WeatherDefinition = {
+  ambient: EnumLike,
+  ambient_color: ColorVector3,
+  clouds_color: ColorVector4,
+  clouds_texture?: TextureFilePath,
+  far_plane: Int,
+  fog_color: ColorVector3,
+  fog_density: FloatZeroToOneRange,
+  fog_distance: Int,
+  hemisphere_color: ColorVector4,
+  rain_color: ColorVector3,
+  rain_density: FloatZeroToOneRange,
+  sky_color: ColorVector3,
+  sky_rotation: FloatZeroToOneRange, // is this right
+  sky_texture: TextureFilePath,
+  sun: EnumLike,
+  sun_color: ColorVector3,
+  sun_shafts_intensity: FloatZeroToOneRange,
+  thunderbolt_collection?: EnumLike,
+  thunderbolt_duration: Float,
+  thunderbolt_period: Int,
+  tree_amplitude_intensity: Float,
+  water_intensity: FloatZeroToOneRange,
+  wind_direction: Int,
+  wind_velocity: Int,
+  bloom_threshold: Float,
+  bloom_exposure: Float,
+  bloom_sky_intensity: Float
+}

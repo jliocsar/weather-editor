@@ -1,0 +1,97 @@
+* as fs from node:fs
+* as readline from node:readline
+
+type { WeatherDefinition } from ./typedefs.civet
+
+type CommentOrIncludeWeatherLtxSection = {
+  entry: string
+}
+export type ParsedWeatherTimeLtxSection = {
+  time: string
+  base: string
+  entries: Partial<WeatherDefinition>
+}
+export type ParsedWeatherLtxSection = (CommentOrIncludeWeatherLtxSection | ParsedWeatherTimeLtxSection) & {
+  next: Partial<ParsedWeatherLtxSection> | null
+}
+
+export class WeatherLtxParser
+  private reverseLtxNodes(parsed: Partial<ParsedWeatherLtxSection>)
+    next .= parsed.next
+    parsed.next = null
+    while next
+      temp := next.next
+      next.next = parsed
+      parsed = next
+      next = temp
+    return parsed
+
+  format(parsed: Partial<ParsedWeatherLtxSection>)
+    next .= @reverseLtxNodes parsed
+    ltx .= "; Weather file touched by Sickhowl's Cheetos dirty fingers\n"
+    while next
+      if 'time' in next
+        ltx += `\n[${next.time}]${next.base ? `:${next.base}` : ''}\n`
+        for [key, value] of Object.entries next.entries
+          ltx += `    ${key} = ${@formatLtxField value}\n`
+      else if 'entry' in next
+        ltx += `${next.entry}\n`
+      next = next.next
+    return ltx
+
+  parse(weatherFilePath: string)
+    unless fs.existsSync weatherFilePath
+      throw new Error `Weather file not found: ${weatherFilePath}`
+
+    weatherFileStream := fs.createReadStream weatherFilePath, 'utf8'
+    readInterface := readline.createInterface weatherFileStream
+    currentSection: Partial<ParsedWeatherLtxSection> .= {
+      next: null,
+    }
+
+    new Promise<Partial<ParsedWeatherLtxSection>> (resolve, reject) =>
+      readInterface.on 'line', (line: string) =>
+        line = line.trim()
+        unless line then return
+
+        switch line
+          /\[.*/
+            [, time, base] .= line.match /(\[.*\])(\:.*)?/
+            time = time.replace /[\[\]]/g, ''
+            base = base?.replace ':', ''
+            currentSection = {
+              time,
+              base,
+              entries: {}
+              next: currentSection
+            }
+          /.*=.*/
+            if 'entries' in currentSection
+              [key, value] .= line.split '='
+              key = key.trim()
+              value = value.trim()
+              currentSection.entries[key] = @parseLtxField value
+          else
+            currentSection =
+              entry: line
+              next: currentSection.next
+
+      readInterface.on 'error', reject
+      readInterface.on 'close', -> resolve currentSection
+
+  private formatLtxField(value: any)
+    if Array.isArray value
+      return value.map @formatLtxField |> .join ', '
+    if value === undefined or value === null
+      return ''
+    value.toString()
+
+  private parseLtxField(value: string)
+    if value is '' then return value
+    value = value.replace /\;.*/, ''
+    numeric := Number value
+    unless isNaN numeric
+      return numeric
+    if value.includes ','
+      return value |> .split ',' |> .map @parseLtxField
+    value

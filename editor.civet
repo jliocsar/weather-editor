@@ -1,0 +1,125 @@
+* as fs from node:fs
+* as fsp from node:fs/promises
+* as path from node:path
+{ spawnSync } from child_process
+
+{ Jimp, intToRGBA } from jimp
+
+{ WeatherLtxParser, type ParsedWeatherLtxSection } from ./ltx-parser.civet
+type { WeatherName, WeatherDefinition, ColorVector3 } from ./typedefs.civet
+
+IS_LINUX := process.platform is "linux"
+
+export type WeatherName
+
+type TIterateResult =
+  weatherName: string
+  weather: Partial<ParsedWeatherLtxSection>
+
+type TWeatherEditorArgs =
+  root: string
+  skyTexturesRoot?: string
+
+export class WeatherTimeHelper
+  static inRange(time: string, range: readonly [string, string])
+    [timeHour, timeMinute] := time |> .split ':' |> .map Number
+    [[rangeStartHour, rangeStartMinute], [rangeEndHour, rangeEndMinute]] := range.map (time) -> {
+      [hour, minute] := time.split ':'
+      return [(Number hour), (Number minute)]
+    }
+    if timeHour < rangeStartHour or timeHour > rangeEndHour
+      return false
+    if timeHour is rangeStartHour and timeMinute < rangeStartMinute
+      return false
+    if timeHour is rangeEndHour and timeMinute > rangeEndMinute
+      return false
+    return true
+
+export class WeatherEditor<TWeatherName extends WeatherName = WeatherName>
+  private root: string
+  private skyTexturesRoot: string
+  private ltxParser: WeatherLtxParser
+  private weathersDirPath: string
+  private skyTextureAvgColorMap = {}
+
+  @(args: TWeatherEditorArgs)
+    @root = args.root
+    @skyTexturesRoot = args.skyTexturesRoot ?? path.join @root, 'gamedata', 'textures', 'sky'
+
+    unless fs.existsSync @skyTexturesRoot
+      throw new Error `Sky textures root not found: ${@skyTexturesRoot}`
+
+    @ltxParser = new WeatherLtxParser
+    @weathersDirPath := path.join @root, 'gamedata', 'configs', 'environment', 'weathers'
+
+  getSkyTextureAvgColor(skyTextureName: string)
+    unless skyTextureName return
+    return new Promise<ColorVector3> (resolve, reject) =>
+      skyTextureName = skyTextureName.replace 'sky\\', ''
+
+      if @skyTextureAvgColorMap[skyTextureName]
+        return resolve @skyTextureAvgColorMap[skyTextureName]
+      
+      skyTexturesRoot := @skyTexturesRoot
+      skyTexturePath := path.join skyTexturesRoot, `${skyTextureName}.dds`
+      unless fs.existsSync skyTexturePath
+        throw new Error `Sky texture not found: ${skyTexturePath}`
+
+      pngPath := skyTexturePath.replace '.dds', '.png'
+      unless fs.existsSync pngPath
+        magick := IS_LINUX ? './magick' : 'magick'
+        spawnSync magick, [skyTexturePath, pngPath], { stdio: 'inherit' }
+
+      try
+        // We only use the first image for now
+        firstImage := skyTexturePath.replace '.dds', '-0.png'
+        buffer := await fsp.readFile firstImage
+        image := await Jimp.read buffer
+        { width, height } := image.bitmap
+        x := Math.floor width / 2
+        y := height
+        { r, g, b } := intToRGBA image.getPixelColor x, y
+        colors := [r, g, b] |> .map ((& / 255) |> .toFixed 4 |> parseFloat)
+        @skyTextureAvgColorMap[skyTextureName] = colors
+        return resolve colors as ColorVector3
+      catch error
+        return reject error
+
+  cleanUpSkyTextures(dirPath = @skyTexturesRoot)
+    try
+      files := fs.readdirSync dirPath
+      for file of files
+        filePath := path.join dirPath, file
+        if fs.statSync(filePath).isDirectory()
+          @cleanUpSkyTextures filePath
+        else if (file.endsWith '.png') and (fs.existsSync filePath)
+          fs.unlinkSync filePath
+    catch _error
+
+  async iterateOver(weatherName: TWeatherName, iteratorCb: (def: WeatherDefinition, time: string) => any): TIterateResult
+    weather := await @parseLtxFile weatherName
+    node .= weather
+    while node
+      if 'time' in node
+        await iteratorCb node.entries as WeatherDefinition, node.time
+      node = node.next
+    return {
+      weatherName,
+      weather,
+    }
+
+  writeIterateResultToWeatherFile({ weatherName, weather }: TIterateResult, debug?: boolean)
+    weatherFilePath := path.join @weathersDirPath, `${weatherName}.ltx`
+    formatted := @ltxParser.format weather
+    unless debug
+      fs.writeFileSync weatherFilePath, formatted
+
+  fetchAllWeathersNames()
+    fs.readdirSync @weathersDirPath
+      .filter .endsWith '.ltx'
+      .map .slice 0, -4
+
+  private parseLtxFile(weatherName: TWeatherName)
+    weatherFilePath := path.join @weathersDirPath, `${weatherName}.ltx`
+    @ltxParser.parse weatherFilePath
+
