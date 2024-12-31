@@ -7,6 +7,7 @@ A simple weather editor written in Civet to easily parse and manipulate S.T.A.L.
 - [Node.js (LTS)](https://nodejs.org/en)
   - [nvm](https://github.com/nvm-sh/nvm) is highly recommended to manage your local Node.js version.
 - [`magick`](https://imagemagick.org/script/download.php#:~:text=an%20iOS%20application.-,Windows%20Binary%20Release,-ImageMagick%20runs%20on)
+- [Civet VSCode Extension](https://civet.dev/getting-started)
 
 If you're on Linux, this repository already includes the `magick` binary file.
 
