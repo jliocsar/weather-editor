@@ -1,13 +1,17 @@
 {
   "name": "weather-editor",
-  "version": "1.0.0",
-  "main": "index.js",
+  "private": true,
+  "version": "0.0.1",
+  "main": "index.civet",
   "scripts": {
-    "dev": "civet index.civet"
+    "start": "civet index.civet"
   },
   "type": "module",
-  "keywords": [],
-  "author": "",
+  "keywords": [
+    "weather",
+    "editor"
+  ],
+  "author": "sickhowl",
   "license": "ISC",
   "description": "",
   "devDependencies": {
@@ -17,7 +21,6 @@
   "dependencies": {
     "get-image-pixels": "^1.0.1",
     "get-rgba-palette": "^2.0.1",
-    "jimp": "^1.6.0",
-    "remove": "^0.1.5"
+    "jimp": "^1.6.0"
   }
 }

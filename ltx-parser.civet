@@ -28,13 +28,14 @@ export class WeatherLtxParser
 
   format(parsed: Partial<ParsedWeatherLtxSection>)
     next .= @reverseLtxNodes parsed
-    ltx .= "; Weather file touched by Sickhowl's Cheetos dirty fingers\n"
+    comment := "; Weather file touched by Sickhowl's Cheetos dirty fingers"
+    ltx .= comment + '\n'
     while next
       if 'time' in next
         ltx += `\n[${next.time}]${next.base ? `:${next.base}` : ''}\n`
         for [key, value] of Object.entries next.entries
           ltx += `    ${key} = ${@formatLtxField value}\n`
-      else if 'entry' in next
+      else if 'entry' in next and next.entry is not comment
         ltx += `${next.entry}\n`
       next = next.next
     return ltx

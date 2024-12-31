@@ -6,11 +6,11 @@
 { Jimp, intToRGBA } from jimp
 
 { WeatherLtxParser, type ParsedWeatherLtxSection } from ./ltx-parser.civet
-type { WeatherName, WeatherDefinition, ColorVector3 } from ./typedefs.civet
+* as Types from ./typedefs.civet
+
+export Types
 
 IS_LINUX := process.platform is "linux"
-
-export type WeatherName
 
 type TIterateResult =
   weatherName: string
@@ -35,7 +35,7 @@ export class WeatherTimeHelper
       return false
     return true
 
-export class WeatherEditor<TWeatherName extends WeatherName = WeatherName>
+export class WeatherEditor<TWeatherName extends Types.WeatherName = Types.WeatherName>
   private root: string
   private skyTexturesRoot: string
   private ltxParser: WeatherLtxParser
@@ -45,16 +45,15 @@ export class WeatherEditor<TWeatherName extends WeatherName = WeatherName>
   @(args: TWeatherEditorArgs)
     @root = args.root
     @skyTexturesRoot = args.skyTexturesRoot ?? path.join @root, 'gamedata', 'textures', 'sky'
-
-    unless fs.existsSync @skyTexturesRoot
-      throw new Error `Sky textures root not found: ${@skyTexturesRoot}`
-
     @ltxParser = new WeatherLtxParser
     @weathersDirPath := path.join @root, 'gamedata', 'configs', 'environment', 'weathers'
 
   getSkyTextureAvgColor(skyTextureName: string)
+    unless fs.existsSync @skyTexturesRoot
+      throw new Error `Sky textures root not found: ${@skyTexturesRoot}`
+
     unless skyTextureName return
-    return new Promise<ColorVector3> (resolve, reject) =>
+    return new Promise<Types.ColorVector3> (resolve, reject) =>
       skyTextureName = skyTextureName.replace 'sky\\', ''
 
       if @skyTextureAvgColorMap[skyTextureName]
@@ -81,11 +80,13 @@ export class WeatherEditor<TWeatherName extends WeatherName = WeatherName>
         { r, g, b } := intToRGBA image.getPixelColor x, y
         colors := [r, g, b] |> .map ((& / 255) |> .toFixed 4 |> parseFloat)
         @skyTextureAvgColorMap[skyTextureName] = colors
-        return resolve colors as ColorVector3
+        return resolve colors as Types.ColorVector3
       catch error
         return reject error
 
   cleanUpSkyTextures(dirPath = @skyTexturesRoot)
+    unless fs.existsSync @skyTexturesRoot
+      throw new Error `Sky textures root not found: ${@skyTexturesRoot}`
     try
       files := fs.readdirSync dirPath
       for file of files
@@ -96,12 +97,12 @@ export class WeatherEditor<TWeatherName extends WeatherName = WeatherName>
           fs.unlinkSync filePath
     catch _error
 
-  async iterateOver(weatherName: TWeatherName, iteratorCb: (def: WeatherDefinition, time: string) => any): TIterateResult
+  async iterateOver(weatherName: TWeatherName, iteratorCb: (def: Types.WeatherDefinition, time: string) => any): TIterateResult
     weather := await @parseLtxFile weatherName
     node .= weather
     while node
       if 'time' in node
-        await iteratorCb node.entries as WeatherDefinition, node.time
+        await iteratorCb node.entries as Types.WeatherDefinition, node.time
       node = node.next
     return {
       weatherName,
