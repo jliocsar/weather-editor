@@ -11,16 +11,17 @@ export type WeatherName =
 type Hour = '00' | '01' | '02' | '03' | '04' | '05' | '06' | '07' | '08' | '09' | '10' | '11' | '12' | '13' | '14' | '15' | '16' | '17' | '18' | '19' | '20' | '21' | '22' | '23' 
 type Minute = '00' | '01' | '02' | '03' | '04' | '05' | '06' | '07' | '08' | '09' | '10' | '11' | '12' | '13' | '14' | '15' | '16' | '17' | '18' | '19' | '20' | '21' | '22' | '23' | '24' | '25' | '26' | '27' | '28' | '29' | '30' | '31' | '32' | '33' | '34' | '35' | '36' | '37' | '38' | '39' | '40' | '41' | '42' | '43' | '44' | '45' | '46' | '47' | '48' | '49' | '50' | '51' | '52' | '53' | '54' | '55' | '56' | '57' | '58' | '59'
 
-export type WeatherTime = `${Hour}:${Minute}`
+export type WeatherTime = `${Hour}:${Minute}` | (string & {})
+export type WeatherTimeRange = readonly [WeatherTime, WeatherTime]
 export type Int = number
 export type Float = number
 export type TextureFilePath = string
 export type EnumLike = string
 export type FloatZeroToOneRange = number
-export type Vector3 = [number, number, number]
-export type Vector4 = [number, number, number, number]
-export type ColorVector3 = [R: number, G: number, B: number]
-export type ColorVector4 = [R: number, G: number, B: number, A: number]
+export type Vector3 = [Float, Float, Float]
+export type Vector4 = [Float, Float, Float, Float]
+export type ColorVector3 = [R: Float, G: Float, B: Float]
+export type ColorVector4 = [R: Float, G: Float, B: Float, A: Float]
 
 export type WeatherDefinition = {
   ambient: EnumLike,

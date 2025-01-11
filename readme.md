@@ -50,28 +50,25 @@ allWeathers := weatherEditor.fetchAllWeathersNames()
 // Iterate over all of them, this means we'll be changing all the weather files
 for weatherName of allWeathers
   // Iterate over all weather times (i.e. `00:00`, `00:30`...)
-  result := await weatherEditor.iterateOver weatherName, (def, time) => {
-    // Skip weathers outside the time range
-    unless WeatherTimeHelper.inRange time, timeRange then return
+  await weatherEditor.patch {
+    weatherName
+    timeRange
+    with: (def, time) =>
+      // Increase the `far_plane` and `fog_distance` in 200
+      def.far_plane = clamp(def.far_plane + 200, 200, 1000)
+      def.fog_distance = clamp(def.fog_distance + 200, 200, 1000)
 
-    // Increase the `far_plane` and `fog_distance` in 200
-    def.far_plane = clamp(def.far_plane + 200, 200, 1000)
-    def.fog_distance = clamp(def.fog_distance + 200, 200, 1000)
+      // Read the average sky texture colors
+      skyTexture := def.sky_texture
+      skyTextureColors := await weatherEditor.getSkyTextureAvgColor skyTexture
 
-    // Read the average sky texture colors
-    skyTexture := def.sky_texture
-    skyTextureColors := await weatherEditor.getSkyTextureAvgColor skyTexture
-
-    // If an average color was found, map it to the expected engine format and used them as the `fog_color`
-    if skyTextureColors
-      defSkyColor := def.sky_color
-      def.fog_color = skyTextureColors |> .map (value) => Number(Math.max(0.01, value - 0.1).toFixed(2))
-      console.info 'Setting fog color to', (def.fog_color.join ', '), 'for', skyTexture
+      // If an average color was found, map it to the expected engine format and used them as the `fog_color`
+      if skyTextureColors
+        defSkyColor := def.sky_color
+        def.fog_color = skyTextureColors |> .map (value) => Number(Math.max(0.01, value - 0.1).toFixed(2))
+        console.info 'Setting fog color to', (def.fog_color.join ', '), 'for', skyTexture
   }
   
-  // Write the result of the changes above to the weather file
-  weatherEditor.writeIterateResultToWeatherFile result
-
 // Clean up the sky textures `png` files when we're all done
 weatherEditor.cleanUpSkyTextures()
 ```

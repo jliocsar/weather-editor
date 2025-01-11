@@ -16,16 +16,6 @@ export type ParsedWeatherLtxSection = (CommentOrIncludeWeatherLtxSection | Parse
 }
 
 export class WeatherLtxParser
-  private reverseLtxNodes(parsed: Partial<ParsedWeatherLtxSection>)
-    next .= parsed.next
-    parsed.next = null
-    while next
-      temp := next.next
-      next.next = parsed
-      parsed = next
-      next = temp
-    return parsed
-
   format(parsed: Partial<ParsedWeatherLtxSection>)
     next .= @reverseLtxNodes parsed
     comment := "; Weather file touched by Sickhowl's Cheetos dirty fingers"
@@ -34,7 +24,7 @@ export class WeatherLtxParser
       if 'time' in next
         ltx += `\n[${next.time}]${next.base ? `:${next.base}` : ''}\n`
         for [key, value] of Object.entries next.entries
-          ltx += `    ${key} = ${@formatLtxField value}\n`
+          ltx += (@indent (@toEntry key, value), 4) + '\n'
       else if 'entry' in next and next.entry is not comment
         ltx += `${next.entry}\n`
       next = next.next
@@ -80,12 +70,28 @@ export class WeatherLtxParser
       readInterface.on 'error', reject
       readInterface.on 'close', -> resolve currentSection
 
+  private reverseLtxNodes(parsed: Partial<ParsedWeatherLtxSection>)
+    next .= parsed.next
+    parsed.next = null
+    while next
+      temp := next.next
+      next.next = parsed
+      parsed = next
+      next = temp
+    return parsed
+
+  private indent(text: string, spaces: number)
+    return (' '.repeat spaces) + text
+
+  private toEntry(key: string, value: any)
+    return `${key} = ${@formatLtxField value}`
+
   private formatLtxField(value: any)
     if Array.isArray value
       return value.map @formatLtxField |> .join ', '
-    if value === undefined or value === null
+    if value is undefined or value is null
       return ''
-    value.toString()
+    return value.toString()
 
   private parseLtxField(value: string)
     if value is '' then return value
@@ -95,4 +101,4 @@ export class WeatherLtxParser
       return numeric
     if value.includes ','
       return value |> .split ',' |> .map @parseLtxField
-    value
+    return value

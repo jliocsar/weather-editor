@@ -10,18 +10,25 @@
 
 export Types
 
-IS_LINUX := process.platform is "linux"
-
-type TIterateResult =
-  weatherName: string
+type TIterateResult<TWeatherName extends Types.WeatherName> =
+  weatherName: TWeatherName
   weather: Partial<ParsedWeatherLtxSection>
 
 type TWeatherEditorArgs =
   root: string
+  debug?: boolean
   skyTexturesRoot?: string
 
+type TPatchArgs<TWeatherName extends Types.WeatherName, TTimeRange extends Types.WeatherTimeRange> =
+  weatherName: TWeatherName
+  timeRange: TTimeRange
+  with: (def: Types.WeatherDefinition, time: Types.WeatherTime) => void
+
+LTX_EXT := '.ltx'
+IS_LINUX := process.platform is "linux"
+
 export class WeatherTimeHelper
-  static inRange(time: string, range: readonly [string, string])
+  static inRange(time: Types.WeatherTime, range: Types.WeatherTimeRange)
     [timeHour, timeMinute] := time |> .split ':' |> .map Number
     [[rangeStartHour, rangeStartMinute], [rangeEndHour, rangeEndMinute]] := range.map (time) -> {
       [hour, minute] := time.split ':'
@@ -35,15 +42,17 @@ export class WeatherTimeHelper
       return false
     return true
 
-export class WeatherEditor<TWeatherName extends Types.WeatherName = Types.WeatherName>
+export class WeatherEditor
   private root: string
+  private debug: boolean
   private skyTexturesRoot: string
   private ltxParser: WeatherLtxParser
   private weathersDirPath: string
-  private skyTextureAvgColorMap = {}
+  private skyTextureAvgColorCache = {}
 
   @(args: TWeatherEditorArgs)
     @root = args.root
+    @debug = args.debug
     @skyTexturesRoot = args.skyTexturesRoot ?? path.join @root, 'gamedata', 'textures', 'sky'
     @ltxParser = new WeatherLtxParser
     @weathersDirPath := path.join @root, 'gamedata', 'configs', 'environment', 'weathers'
@@ -56,8 +65,8 @@ export class WeatherEditor<TWeatherName extends Types.WeatherName = Types.Weathe
     return new Promise<Types.ColorVector3> (resolve, reject) =>
       skyTextureName = skyTextureName.replace 'sky\\', ''
 
-      if @skyTextureAvgColorMap[skyTextureName]
-        return resolve @skyTextureAvgColorMap[skyTextureName]
+      if @skyTextureAvgColorCache[skyTextureName]
+        return resolve @skyTextureAvgColorCache[skyTextureName]
       
       skyTexturesRoot := @skyTexturesRoot
       skyTexturePath := path.join skyTexturesRoot, `${skyTextureName}.dds`
@@ -79,7 +88,7 @@ export class WeatherEditor<TWeatherName extends Types.WeatherName = Types.Weathe
         y := height
         { r, g, b } := intToRGBA image.getPixelColor x, y
         colors := [r, g, b] |> .map ((& / 255) |> .toFixed 4 |> parseFloat)
-        @skyTextureAvgColorMap[skyTextureName] = colors
+        @skyTextureAvgColorCache[skyTextureName] = colors
         return resolve colors as Types.ColorVector3
       catch error
         return reject error
@@ -97,7 +106,21 @@ export class WeatherEditor<TWeatherName extends Types.WeatherName = Types.Weathe
           fs.unlinkSync filePath
     catch _error
 
-  async iterateOver(weatherName: TWeatherName, iteratorCb: (def: Types.WeatherDefinition, time: string) => any): TIterateResult
+  patch<TWeatherName extends Types.WeatherName, TTimeRange extends Types.WeatherTimeRange>(args: TPatchArgs<TWeatherName, TTimeRange>)
+    { weatherName, timeRange, with: iteratorCb } := args
+    result := await @iterateOver weatherName, (def, time) ->
+      unless WeatherTimeHelper.inRange time, timeRange then return
+      console.info 'Running for', weatherName, '|', time
+      iteratorCb def, time
+    return @writeIterateResultToWeatherFile result
+
+  fetchAllWeathersNames()
+    length := LTX_EXT.length
+    return fs.readdirSync @weathersDirPath
+      .filter .endsWith LTX_EXT
+      .map .slice 0, -length
+
+  private iterateOver<TWeatherName extends Types.WeatherName>(weatherName: TWeatherName, iteratorCb: (def: Types.WeatherDefinition, time: string) => any): TIterateResult<TWeatherName>
     weather := await @parseLtxFile weatherName
     node .= weather
     while node
@@ -109,18 +132,13 @@ export class WeatherEditor<TWeatherName extends Types.WeatherName = Types.Weathe
       weather,
     }
 
-  writeIterateResultToWeatherFile({ weatherName, weather }: TIterateResult, debug?: boolean)
-    weatherFilePath := path.join @weathersDirPath, `${weatherName}.ltx`
+  private writeIterateResultToWeatherFile<TWeatherName extends Types.WeatherName>({ weatherName, weather }: TIterateResult<TWeatherName>)
+    weatherFilePath := path.join @weathersDirPath, `${weatherName}${LTX_EXT}`
     formatted := @ltxParser.format weather
-    unless debug
+    unless @debug
       fs.writeFileSync weatherFilePath, formatted
 
-  fetchAllWeathersNames()
-    fs.readdirSync @weathersDirPath
-      .filter .endsWith '.ltx'
-      .map .slice 0, -4
-
-  private parseLtxFile(weatherName: TWeatherName)
-    weatherFilePath := path.join @weathersDirPath, `${weatherName}.ltx`
-    @ltxParser.parse weatherFilePath
+  private parseLtxFile<TWeatherName extends Types.WeatherName>(weatherName: TWeatherName)
+    weatherFilePath := path.join @weathersDirPath, `${weatherName}${LTX_EXT}`
+    return @ltxParser.parse weatherFilePath
 

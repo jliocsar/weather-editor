@@ -1,21 +1,15 @@
-{ WeatherEditor, WeatherTimeHelper } from ./editor.civet
+{ WeatherEditor, Types } from ./editor.civet
 
-root := "C:/Abnormally_Cold/MO2/mods/Fix Atmospherics Stupid Clear Weather"
-timeRange := ['09:00', '18:59'] as const
-weatherName := 'w_clear1'
+root := "./examples"
+timeRange: Types.WeatherTimeRange := ['09:00', '18:59']
 
 weatherEditor := new WeatherEditor { root }
 
-console.info 'Running for', weatherName
-result := await weatherEditor.iterateOver weatherName, (def, time) => {
-  unless WeatherTimeHelper.inRange time, timeRange then return
-  console.info 'Processing', time
-
-  def.fog_color = [
-    def.fog_color[0] + 0.1,
-    def.fog_color[1] + 0.1,
-    def.fog_color[2] + 0.1
-  ]
+weatherName: Types.WeatherName := 'w_clear1'
+// weatherNames := weatherEditor.fetchAllWeathersNames()
+// for weatherName of weatherNames
+await weatherEditor.patch {
+  weatherName
+  timeRange
+  with: (def) => {}
 }
-
-weatherEditor.writeIterateResultToWeatherFile result
