@@ -7,8 +7,22 @@
 
 { WeatherLtxParser, type ParsedWeatherLtxSection } from ./ltx-parser.civet
 * as Types from ./typedefs.civet
+{ clamp } from ./utils.civet
 
 export Types
+
+class WeatherLtxNormalizer
+  colorVector3(field: Types.ColorVector3)
+    return (field.map (color) => clamp color, 0, 1) as Types.ColorVector3
+  
+  colorVector4(field: Types.ColorVector4)
+    return (field.map (color) => clamp color, 0, 1) as Types.ColorVector4
+
+  zeroToThousand(field: number)
+    return clamp field, 0, 1000
+
+  zeroToOne(field: number)
+    return clamp field, 0, 1
 
 type TIterateResult<TWeatherName extends Types.WeatherName> =
   weatherName: TWeatherName
@@ -19,6 +33,10 @@ type TWeatherEditorArgs =
   debug?: boolean
   skyTexturesRoot?: string
 
+type NormalizerMap = {
+  [Key in keyof Types.WeatherDefinition]?: keyof WeatherLtxNormalizer
+}
+
 type TPatchArgs<TWeatherName extends Types.WeatherName, TTimeRange extends Types.WeatherTimeRange> =
   weatherName: TWeatherName
   timeRange: TTimeRange
@@ -26,29 +44,31 @@ type TPatchArgs<TWeatherName extends Types.WeatherName, TTimeRange extends Types
 
 LTX_EXT := '.ltx'
 IS_LINUX := process.platform is "linux"
-
-export class WeatherTimeHelper
-  static inRange(time: Types.WeatherTime, range: Types.WeatherTimeRange)
-    [timeHour, timeMinute] := time |> .split ':' |> .map Number
-    [[rangeStartHour, rangeStartMinute], [rangeEndHour, rangeEndMinute]] := range.map (time) -> {
-      [hour, minute] := time.split ':'
-      return [(Number hour), (Number minute)]
-    }
-    if timeHour < rangeStartHour or timeHour > rangeEndHour
-      return false
-    if timeHour is rangeStartHour and timeMinute < rangeStartMinute
-      return false
-    if timeHour is rangeEndHour and timeMinute > rangeEndMinute
-      return false
-    return true
-
+``
 export class WeatherEditor
-  private root: string
-  private debug: boolean
-  private skyTexturesRoot: string
-  private ltxParser: WeatherLtxParser
-  private weathersDirPath: string
-  private skyTextureAvgColorCache = {}
+  private readonly root: string
+  private readonly debug: boolean
+  private readonly skyTexturesRoot: string
+  private readonly ltxParser: WeatherLtxParser
+  private readonly weathersDirPath: string
+  private readonly skyTextureAvgColorCache = {}
+  private readonly normalizer: WeatherLtxNormalizer
+  private readonly normalizeMap: NormalizerMap = {
+    ambient_color: 'colorVector3'
+    clouds_color: 'colorVector4'
+    far_plane: 'zeroToThousand'
+    fog_color: 'colorVector3'
+    fog_density: 'zeroToOne'
+    fog_distance: 'zeroToThousand'
+    hemisphere_color: 'colorVector4'
+    rain_color: 'colorVector3'
+    rain_density: 'zeroToOne'
+    sky_color: 'colorVector3'
+    sky_rotation: 'zeroToOne'
+    sun_color: 'colorVector3'
+    sun_shafts_intensity: 'zeroToOne'
+    water_intensity: 'zeroToOne'
+  }
 
   @(args: TWeatherEditorArgs)
     @root = args.root
@@ -56,6 +76,7 @@ export class WeatherEditor
     @skyTexturesRoot = args.skyTexturesRoot ?? path.join @root, 'gamedata', 'textures', 'sky'
     @ltxParser = new WeatherLtxParser
     @weathersDirPath := path.join @root, 'gamedata', 'configs', 'environment', 'weathers'
+    @normalizer := new WeatherLtxNormalizer
 
   getSkyTextureAvgColor(skyTextureName: string)
     unless fs.existsSync @skyTexturesRoot
@@ -108,10 +129,11 @@ export class WeatherEditor
 
   patch<TWeatherName extends Types.WeatherName, TTimeRange extends Types.WeatherTimeRange>(args: TPatchArgs<TWeatherName, TTimeRange>)
     { weatherName, timeRange, with: iteratorCb } := args
-    result := await @iterateOver weatherName, (def, time) ->
-      unless WeatherTimeHelper.inRange time, timeRange then return
+    result := await @iterateOver weatherName, (def, time) =>
+      unless @inTimeRange time, timeRange then return
       console.info 'Running for', weatherName, '|', time
       iteratorCb def, time
+      @normalizeDef def
     return @writeIterateResultToWeatherFile result
 
   fetchAllWeathersNames()
@@ -119,6 +141,30 @@ export class WeatherEditor
     return fs.readdirSync @weathersDirPath
       .filter .endsWith LTX_EXT
       .map .slice 0, -length
+
+  private normalizeDef(def: Types.WeatherDefinition)
+    normalizeMapEntries := Object.entries @normalizeMap
+    normalized := Object.assign {}, def
+
+    for [field, normalizer] of normalizeMapEntries
+      if field in normalized
+        normalized[field] = @normalizer[normalizer] normalized[field]
+
+    return normalized
+
+  private inTimeRange(time: Types.WeatherTime, range: Types.WeatherTimeRange)
+    [timeHour, timeMinute] := time |> .split ':' |> .map Number
+    [[rangeStartHour, rangeStartMinute], [rangeEndHour, rangeEndMinute]] := range.map (time) => {
+      [hour, minute] := time.split ':'
+      return [(Number hour), (Number minute)]
+    }
+    if timeHour < rangeStartHour or timeHour > rangeEndHour
+      return false
+    if timeHour is rangeStartHour and timeMinute < rangeStartMinute
+      return false
+    if timeHour is rangeEndHour and timeMinute > rangeEndMinute
+      return false
+    return true
 
   private iterateOver<TWeatherName extends Types.WeatherName>(weatherName: TWeatherName, iteratorCb: (def: Types.WeatherDefinition, time: string) => any): TIterateResult<TWeatherName>
     weather := await @parseLtxFile weatherName

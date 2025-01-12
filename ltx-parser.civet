@@ -68,7 +68,7 @@ export class WeatherLtxParser
               next: currentSection.next
 
       readInterface.on 'error', reject
-      readInterface.on 'close', -> resolve currentSection
+      readInterface.on 'close', => resolve currentSection
 
   private reverseLtxNodes(parsed: Partial<ParsedWeatherLtxSection>)
     next .= parsed.next

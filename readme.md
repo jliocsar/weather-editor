@@ -36,11 +36,11 @@ Finally, right now the only "fancy" feature from the weather editor is being abl
 ## Examples
 
 ```ts
-{ WeatherEditor, WeatherTimeHelper } from ./editor.civet
+{ WeatherEditor, Types } from ./editor.civet
 { clamp } from ./utils.civet
 
 root := "C:/Anomaly/MO2/mods/Fix Atmospherics Stupid Clear Weather"
-timeRange := ['09:00', '14:59'] as const
+timeRange: Types.WeatherTimeRange := ['09:00', '18:59']
 
 weatherEditor := new WeatherEditor { root }
 
