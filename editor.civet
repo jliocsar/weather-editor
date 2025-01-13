@@ -5,28 +5,183 @@
 
 { Jimp, intToRGBA } from jimp
 
-{ WeatherLtxParser, type ParsedWeatherLtxSection } from ./ltx-parser.civet
+{ LtxParser, type ParsedLtxSection } from ./ltx-parser.civet
 * as Types from ./typedefs.civet
 { clamp } from ./utils.civet
 
 export Types
 
-class WeatherLtxNormalizer
-  colorVector3(field: Types.ColorVector3)
-    return (field.map (color) => clamp color, 0, 1) as Types.ColorVector3
+class CColorVector3
+  @(@r: number, @g: number, @b: number)
+
+  get()
+    [@r, @g, @b]
+
+  normalize()
+    @divide 255
+    return this
+
+  divide(div: number | number[] | Types.ColorVector3 | Types.ColorVector4, isArray = Array.isArray div)
+    r .= @r
+    g .= @g
+    b .= @b
+
+    if isArray
+      r /= div.0 or 1
+      g /= div.1 or 1
+      b /= div.2 or 1
+    else
+      div = div as number
+      r /= div
+      g /= div
+      b /= div
+
+    @r = r as number
+    @g = g as number
+    @b = b as number
+
+    return this
+
+  multiply(mul: number | number[] | Types.ColorVector3 | Types.ColorVector4, isArray = Array.isArray mul)
+    r .= @r
+    g .= @g
+    b .= @b
+
+    if isArray
+      r *= mul.0 or 1
+      g *= mul.1 or 1
+      b *= mul.2 or 1
+    else
+      mul = mul as number
+      r *= mul
+      g *= mul
+      b *= mul
+
+    @r = r as number
+    @g = g as number
+    @b = b as number
+
+    return this
+
+  sum(sum: number | number[] | Types.ColorVector3 | Types.ColorVector4, isArray = Array.isArray sum)
+    r .= @r
+    g .= @g
+    b .= @b
+
+    if isArray
+      r += sum.0 or 1
+      g += sum.1 or 1
+      b += sum.2 or 1
+    else
+      sum = sum as number
+      r += sum
+      g += sum
+      b += sum
+
+    @r = r as number
+    @g = g as number
+    @b = b as number
+
+    return this
+
+  subtract(sub: number | number[] | Types.ColorVector3 | Types.ColorVector4, isArray = Array.isArray sub)
+    r .= @r
+    g .= @g
+    b .= @b
+
+    if isArray
+      r -= sub.0 or 1
+      g -= sub.1 or 1
+      b -= sub.2 or 1
+    else
+      sub = sub as number
+      r -= sub
+      g -= sub
+      b -= sub
+
+    @r = r as number
+    @g = g as number
+    @b = b as number
+
+    return this
+
+class CColorVector4 < CColorVector3
+  @(r: number, g: number, b: number, @a: number)
+    super r, g, b
+
+  get()
+    rgb := super.get()
+    rgb.push @a
+    return rgb as Types.ColorVector4
+
+  divide(div: number | number[] | Types.ColorVector3 | Types.ColorVector4)
+    isArray := Array.isArray div
+    a .= @a
+
+    if isArray
+      a /= div.3 or 1
+    else
+      div = div as number
+      a /= div
+
+    @a = a as number
+    super.divide div, isArray
+
+  multiply(mul: number | number[] | Types.ColorVector3 | Types.ColorVector4)
+    isArray := Array.isArray mul
+    a .= @a
+
+    if isArray
+      a *= mul.3 or 1
+    else
+      mul = mul as number
+      a *= mul
+
+    @a = a as number
+    super.multiply mul, isArray
+
+  sum(sum: number | number[] | Types.ColorVector3 | Types.ColorVector4)
+    isArray := Array.isArray sum
+    a .= @a
+
+    if isArray
+      a += sum.3 or 1
+    else
+      sum = sum as number
+      a += sum
+
+    @a = a as number
+    super.sum sum, isArray
+
+  subtract(sub: number | number[] | Types.ColorVector3 | Types.ColorVector4)
+    isArray := Array.isArray sub
+    a .= @a
+
+    if isArray
+      a -= sub.3 or 1
+    else
+      sub = sub as number
+      a -= sub
+
+    @a = a as number
+    super.subtract sub, isArray
+
+export class WeatherLtxNormalizer
+  colorVector3(value: Types.ColorVector3)
+    return value.map(@zeroToOne) as Types.ColorVector3
   
-  colorVector4(field: Types.ColorVector4)
-    return (field.map (color) => clamp color, 0, 1) as Types.ColorVector4
+  colorVector4(value: Types.ColorVector4)
+    return value.map(@zeroToOne) as Types.ColorVector4
 
-  zeroToThousand(field: number)
-    return clamp field, 0, 1000
+  zeroToThousand(value: number)
+    return clamp value, 0, 1000
 
-  zeroToOne(field: number)
-    return clamp field, 0, 1
+  zeroToOne(value: number)
+    return clamp value, 0, 1
 
 type TIterateResult<TWeatherName extends Types.WeatherName> =
   weatherName: TWeatherName
-  weather: Partial<ParsedWeatherLtxSection>
+  weather: Partial<ParsedLtxSection>
 
 type TWeatherEditorArgs =
   root: string
@@ -43,16 +198,24 @@ type TPatchArgs<TWeatherName extends Types.WeatherName, TTimeRange extends Types
   with: (def: Types.WeatherDefinition, time: Types.WeatherTime) => void
 
 LTX_EXT := '.ltx'
+DDS_EXT := '.dds'
+PNG_EXT := '.png'
 IS_LINUX := process.platform is "linux"
-``
+
+export function vector3(r: number, g: number, b: number)
+  new CColorVector3 r, g, b
+
+export function vector4(r: number, g: number, b: number, a: number)
+  new CColorVector4 r, g, b, a
+
 export class WeatherEditor
   private readonly root: string
   private readonly debug: boolean
   private readonly skyTexturesRoot: string
-  private readonly ltxParser: WeatherLtxParser
   private readonly weathersDirPath: string
-  private readonly skyTextureAvgColorCache = {}
+  private readonly ltxParser: LtxParser
   private readonly normalizer: WeatherLtxNormalizer
+  private readonly skyTextureAvgColorCache = {}
   private readonly normalizeMap: NormalizerMap = {
     ambient_color: 'colorVector3'
     clouds_color: 'colorVector4'
@@ -74,7 +237,7 @@ export class WeatherEditor
     @root = args.root
     @debug = args.debug
     @skyTexturesRoot = args.skyTexturesRoot ?? path.join @root, 'gamedata', 'textures', 'sky'
-    @ltxParser = new WeatherLtxParser
+    @ltxParser = new LtxParser
     @weathersDirPath := path.join @root, 'gamedata', 'configs', 'environment', 'weathers'
     @normalizer := new WeatherLtxNormalizer
 
@@ -90,27 +253,30 @@ export class WeatherEditor
         return resolve @skyTextureAvgColorCache[skyTextureName]
       
       skyTexturesRoot := @skyTexturesRoot
-      skyTexturePath := path.join skyTexturesRoot, `${skyTextureName}.dds`
+      skyTexturePath := path.join skyTexturesRoot, `${skyTextureName}${DDS_EXT}`
       unless fs.existsSync skyTexturePath
         throw new Error `Sky texture not found: ${skyTexturePath}`
 
-      pngPath := skyTexturePath.replace '.dds', '.png'
+      pngPath := skyTexturePath.replace DDS_EXT, PNG_EXT
       unless fs.existsSync pngPath
         magick := IS_LINUX ? './magick' : 'magick'
         spawnSync magick, [skyTexturePath, pngPath], { stdio: 'inherit' }
 
       try
         // We only use the first image for now
-        firstImage := skyTexturePath.replace '.dds', '-0.png'
+        firstImage := skyTexturePath.replace DDS_EXT, `-0${PNG_EXT}`
         buffer := await fsp.readFile firstImage
         image := await Jimp.read buffer
         { width, height } := image.bitmap
+        // For now we're grabbing the pixel from the middle bottom, which is essentially the color that the game uses
+        // to create that skybox/cubemap thing idk the name
         x := Math.floor width / 2
-        y := height
+        y := height - 1
         { r, g, b } := intToRGBA image.getPixelColor x, y
-        colors := [r, g, b] |> .map ((& / 255) |> .toFixed 4 |> parseFloat)
+        // Format the vector to the engine format (color / 255)
+        colors := vector3(r, g, b).normalize().get() as Types.ColorVector3
         @skyTextureAvgColorCache[skyTextureName] = colors
-        return resolve colors as Types.ColorVector3
+        return resolve colors
       catch error
         return reject error
 
@@ -123,7 +289,7 @@ export class WeatherEditor
         filePath := path.join dirPath, file
         if fs.statSync(filePath).isDirectory()
           @cleanUpSkyTextures filePath
-        else if (file.endsWith '.png') and (fs.existsSync filePath)
+        else if (file.endsWith PNG_EXT) and (fs.existsSync filePath)
           fs.unlinkSync filePath
     catch _error
 
@@ -146,9 +312,10 @@ export class WeatherEditor
     normalizeMapEntries := Object.entries @normalizeMap
     normalized := Object.assign {}, def
 
-    for [field, normalizer] of normalizeMapEntries
-      if field in normalized
-        normalized[field] = @normalizer[normalizer] normalized[field]
+    for [key, normalizer] of normalizeMapEntries
+      value := normalized[key]
+      if value is not undefined
+        normalized[key] = @normalizer[normalizer] normalized[key]
 
     return normalized
 
@@ -170,8 +337,8 @@ export class WeatherEditor
     weather := await @parseLtxFile weatherName
     node .= weather
     while node
-      if 'time' in node
-        await iteratorCb node.entries as Types.WeatherDefinition, node.time
+      if 'section' in node
+        await iteratorCb node.entries as Types.WeatherDefinition, node.section
       node = node.next
     return {
       weatherName,

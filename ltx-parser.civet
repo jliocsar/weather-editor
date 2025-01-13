@@ -6,41 +6,44 @@ type { WeatherDefinition } from ./typedefs.civet
 type CommentOrIncludeWeatherLtxSection = {
   entry: string
 }
-export type ParsedWeatherTimeLtxSection = {
-  time: string
+type ParsedLtxSectionEntry = {
+  section: string
   base: string
   entries: Partial<WeatherDefinition>
 }
-export type ParsedWeatherLtxSection = (CommentOrIncludeWeatherLtxSection | ParsedWeatherTimeLtxSection) & {
-  next: Partial<ParsedWeatherLtxSection> | null
+export type ParsedLtxSection = (CommentOrIncludeWeatherLtxSection | ParsedLtxSectionEntry) & {
+  next: Partial<ParsedLtxSection> | null
 }
 
-export class WeatherLtxParser
-  format(parsed: Partial<ParsedWeatherLtxSection>)
+export class LtxParser
+  format(parsed: Partial<ParsedLtxSection>)
     next .= @reverseLtxNodes parsed
     comment := "; Weather file touched by Sickhowl's Cheetos dirty fingers"
     ltx .= comment + '\n'
     while next
-      if 'time' in next
-        ltx += `\n[${next.time}]${next.base ? `:${next.base}` : ''}\n`
+      if 'section' in next
+        ltx += `\n[${next.section}]${next.base ? `:${next.base}` : ''}\n`
         for [key, value] of Object.entries next.entries
           ltx += (@indent (@toEntry key, value), 4) + '\n'
-      else if 'entry' in next and next.entry is not comment
+      else if
+        (and)
+          'entry' in next
+          next.entry is not comment
         ltx += `${next.entry}\n`
       next = next.next
     return ltx
 
-  parse(weatherFilePath: string)
-    unless fs.existsSync weatherFilePath
-      throw new Error `Weather file not found: ${weatherFilePath}`
+  parse(filePath: string)
+    unless fs.existsSync filePath
+      throw new Error `Weather file not found: ${filePath}`
 
-    weatherFileStream := fs.createReadStream weatherFilePath, 'utf8'
-    readInterface := readline.createInterface weatherFileStream
-    currentSection: Partial<ParsedWeatherLtxSection> .= {
+    fileStream := fs.createReadStream filePath, 'utf8'
+    readInterface := readline.createInterface fileStream
+    currentSection: Partial<ParsedLtxSection> .= {
       next: null,
     }
 
-    new Promise<Partial<ParsedWeatherLtxSection>> (resolve, reject) =>
+    new Promise<Partial<ParsedLtxSection>> (resolve, reject) =>
       readInterface.on 'line', (line: string) =>
         line = line.trim()
         unless line then return
@@ -51,7 +54,7 @@ export class WeatherLtxParser
             time = time.replace /[\[\]]/g, ''
             base = base?.replace ':', ''
             currentSection = {
-              time,
+              section: time,
               base,
               entries: {}
               next: currentSection
@@ -70,7 +73,7 @@ export class WeatherLtxParser
       readInterface.on 'error', reject
       readInterface.on 'close', => resolve currentSection
 
-  private reverseLtxNodes(parsed: Partial<ParsedWeatherLtxSection>)
+  private reverseLtxNodes(parsed: Partial<ParsedLtxSection>)
     next .= parsed.next
     parsed.next = null
     while next
@@ -89,7 +92,10 @@ export class WeatherLtxParser
   private formatLtxField(value: any)
     if Array.isArray value
       return value.map @formatLtxField |> .join ', '
-    if value is undefined or value is null
+    if
+      (or)
+        value is undefined
+        value is null
       return ''
     return value.toString()
 
