@@ -29,7 +29,7 @@ Once you are comfortable enough with your changes, run the `npm run start` comma
 
 All available types are included under the `Types` namespace, which can be imported from the editor file.
 
-A `utils` import is also available with utility functions (mostly for math stuff like `clamp` etc).
+An `utils` import is also available with utility functions, like math stuff such as `clamp` or Anomaly scripts-like implementation of vectors (`vector3` and `vector4`).
 
 Finally, right now the only "fancy" feature from the weather editor is being able to grab the average sky texture color to be used as a parameter for `fog_color` and so on. Keep in mind this feature will keep the `png` files from the library used to grab colors until you call the `cleanUpSkyTextures()` method
 
@@ -65,7 +65,7 @@ for weatherName of allWeathers
       // If an average color was found, map it to the expected engine format and used them as the `fog_color`
       if skyTextureColors
         defSkyColor := def.sky_color
-        def.fog_color = skyTextureColors |> .map (value) => Number(Math.max(0.01, value - 0.1).toFixed(2))
+        def.fog_color = skyTextureColors.toArray().map (value) => Number(Math.max(0.01, value - 0.1).toFixed(2))
         console.info 'Setting fog color to', (def.fog_color.join ', '), 'for', skyTexture
   }
   

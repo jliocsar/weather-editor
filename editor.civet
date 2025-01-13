@@ -7,177 +7,52 @@
 
 { LtxParser, type ParsedLtxSection } from ./ltx-parser.civet
 * as Types from ./typedefs.civet
-{ clamp } from ./utils.civet
+{ clamp, vector3 } from ./utils.civet
 
 export Types
 
-class CColorVector3
-  @(@r: number, @g: number, @b: number)
-
-  get()
-    [@r, @g, @b]
-
-  normalize()
-    @divide 255
-    return this
-
-  divide(div: number | number[] | Types.ColorVector3 | Types.ColorVector4, isArray = Array.isArray div)
-    r .= @r
-    g .= @g
-    b .= @b
-
-    if isArray
-      r /= div.0 or 1
-      g /= div.1 or 1
-      b /= div.2 or 1
-    else
-      div = div as number
-      r /= div
-      g /= div
-      b /= div
-
-    @r = r as number
-    @g = g as number
-    @b = b as number
-
-    return this
-
-  multiply(mul: number | number[] | Types.ColorVector3 | Types.ColorVector4, isArray = Array.isArray mul)
-    r .= @r
-    g .= @g
-    b .= @b
-
-    if isArray
-      r *= mul.0 or 1
-      g *= mul.1 or 1
-      b *= mul.2 or 1
-    else
-      mul = mul as number
-      r *= mul
-      g *= mul
-      b *= mul
-
-    @r = r as number
-    @g = g as number
-    @b = b as number
-
-    return this
-
-  sum(sum: number | number[] | Types.ColorVector3 | Types.ColorVector4, isArray = Array.isArray sum)
-    r .= @r
-    g .= @g
-    b .= @b
-
-    if isArray
-      r += sum.0 or 1
-      g += sum.1 or 1
-      b += sum.2 or 1
-    else
-      sum = sum as number
-      r += sum
-      g += sum
-      b += sum
-
-    @r = r as number
-    @g = g as number
-    @b = b as number
-
-    return this
-
-  subtract(sub: number | number[] | Types.ColorVector3 | Types.ColorVector4, isArray = Array.isArray sub)
-    r .= @r
-    g .= @g
-    b .= @b
-
-    if isArray
-      r -= sub.0 or 1
-      g -= sub.1 or 1
-      b -= sub.2 or 1
-    else
-      sub = sub as number
-      r -= sub
-      g -= sub
-      b -= sub
-
-    @r = r as number
-    @g = g as number
-    @b = b as number
-
-    return this
-
-class CColorVector4 < CColorVector3
-  @(r: number, g: number, b: number, @a: number)
-    super r, g, b
-
-  get()
-    rgb := super.get()
-    rgb.push @a
-    return rgb as Types.ColorVector4
-
-  divide(div: number | number[] | Types.ColorVector3 | Types.ColorVector4)
-    isArray := Array.isArray div
-    a .= @a
-
-    if isArray
-      a /= div.3 or 1
-    else
-      div = div as number
-      a /= div
-
-    @a = a as number
-    super.divide div, isArray
-
-  multiply(mul: number | number[] | Types.ColorVector3 | Types.ColorVector4)
-    isArray := Array.isArray mul
-    a .= @a
-
-    if isArray
-      a *= mul.3 or 1
-    else
-      mul = mul as number
-      a *= mul
-
-    @a = a as number
-    super.multiply mul, isArray
-
-  sum(sum: number | number[] | Types.ColorVector3 | Types.ColorVector4)
-    isArray := Array.isArray sum
-    a .= @a
-
-    if isArray
-      a += sum.3 or 1
-    else
-      sum = sum as number
-      a += sum
-
-    @a = a as number
-    super.sum sum, isArray
-
-  subtract(sub: number | number[] | Types.ColorVector3 | Types.ColorVector4)
-    isArray := Array.isArray sub
-    a .= @a
-
-    if isArray
-      a -= sub.3 or 1
-    else
-      sub = sub as number
-      a -= sub
-
-    @a = a as number
-    super.subtract sub, isArray
+LTX_EXT := '.ltx'
+DDS_EXT := '.dds'
+PNG_EXT := '.png'
+SKY_TEXTURE_PREFIX := 'sky\\'
+IS_LINUX := process.platform is "linux"
 
 export class WeatherLtxNormalizer
-  colorVector3(value: Types.ColorVector3)
-    return value.map(@zeroToOne) as Types.ColorVector3
-  
-  colorVector4(value: Types.ColorVector4)
-    return value.map(@zeroToOne) as Types.ColorVector4
+  colorVector3<T>(value: T)
+    unless @isColorVector3 value then return
+    return (value.map @zeroToOne) as Types.ColorVector3
 
-  zeroToThousand(value: number)
+  colorVector4<T>(value: T)
+    unless @isColorVector4 value then return
+    return (value.map @zeroToOne) as Types.ColorVector4
+
+  zeroToThousand<T>(value: T)
+    unless @isInteger value then return
     return clamp value, 0, 1000
 
-  zeroToOne(value: number)
-    return clamp value, 0, 1
+  zeroToOne<T>(value: T, fractionDigits = 4)
+    unless @isFloat value then return
+    fixed := Number value.toFixed fractionDigits
+    return clamp fixed, 0, 1
+
+  skyTexture<T>(value: T)
+    unless @isString value then return
+    return value.startsWith SKY_TEXTURE_PREFIX and value or `${SKY_TEXTURE_PREFIX}${value}`
+
+  private isColorVector3(value: any): value is Types.ColorVector3
+    return Array.isArray value and value# is 3
+
+  private isColorVector4(value: any): value is Types.ColorVector4
+    return Array.isArray value and value# is 4
+
+  private isInteger(value: any): value is number
+    return typeof value is 'number' and Number.isInteger value
+
+  private isFloat(value: any): value is number
+    return typeof value is 'number' and not Number.isInteger value
+
+  private isString(value: any): value is string
+    return typeof value is 'string'
 
 type TIterateResult<TWeatherName extends Types.WeatherName> =
   weatherName: TWeatherName
@@ -194,19 +69,8 @@ type NormalizerMap = {
 
 type TPatchArgs<TWeatherName extends Types.WeatherName, TTimeRange extends Types.WeatherTimeRange> =
   weatherName: TWeatherName
-  timeRange: TTimeRange
   with: (def: Types.WeatherDefinition, time: Types.WeatherTime) => void
-
-LTX_EXT := '.ltx'
-DDS_EXT := '.dds'
-PNG_EXT := '.png'
-IS_LINUX := process.platform is "linux"
-
-export function vector3(r: number, g: number, b: number)
-  new CColorVector3 r, g, b
-
-export function vector4(r: number, g: number, b: number, a: number)
-  new CColorVector4 r, g, b, a
+  timeRange?: TTimeRange
 
 export class WeatherEditor
   private readonly root: string
@@ -228,6 +92,7 @@ export class WeatherEditor
     rain_density: 'zeroToOne'
     sky_color: 'colorVector3'
     sky_rotation: 'zeroToOne'
+    sky_texture: 'skyTexture'
     sun_color: 'colorVector3'
     sun_shafts_intensity: 'zeroToOne'
     water_intensity: 'zeroToOne'
@@ -241,13 +106,50 @@ export class WeatherEditor
     @weathersDirPath := path.join @root, 'gamedata', 'configs', 'environment', 'weathers'
     @normalizer := new WeatherLtxNormalizer
 
+  createMediumVersion(idx: string, baseName: string, baseContent: string)
+    medium := `${baseName}_medium${idx}`
+    mediumPath := path.join @weathersDirPath, `${medium}${LTX_EXT}`
+
+    if fs.existsSync mediumPath
+      throw new Error `Medium weather file already exists: ${mediumPath}`
+
+    fs.writeFileSync mediumPath, baseContent
+
+  createStrongVersion(idx: string, baseName: string, baseContent: string)
+    strong := `${baseName}_strong${idx}`
+    strongPath := path.join @weathersDirPath, `${strong}${LTX_EXT}`
+
+    if fs.existsSync strongPath
+      throw new Error `Strong weather file already exists: ${strongPath}`
+
+    fs.writeFileSync strongPath, baseContent
+
+  /**
+   * Creates the `_medium` and `_strong` versions of the weather file
+   */
+  createMediumAndStrongVersions(weatherName: string)
+    nameParts := weatherName.match /(.*)(\d+)$/
+
+    unless nameParts
+      throw new Error `Invalid weather name: ${weatherName}`
+
+    base := path.join @weathersDirPath, `${weatherName}${LTX_EXT}`
+    baseContent := fs.readFileSync base, 'utf8'
+    [, baseName, idx] := nameParts
+
+    @createMediumVersion idx, baseName, baseContent
+    @createStrongVersion idx, baseName, baseContent
+
+  /**
+   * Get the average color of the sky texture
+   */
   getSkyTextureAvgColor(skyTextureName: string)
     unless fs.existsSync @skyTexturesRoot
       throw new Error `Sky textures root not found: ${@skyTexturesRoot}`
 
     unless skyTextureName return
-    return new Promise<Types.ColorVector3> (resolve, reject) =>
-      skyTextureName = skyTextureName.replace 'sky\\', ''
+    return new Promise<ReturnType<typeof vector3>> (resolve, reject) =>
+      skyTextureName = skyTextureName.replace SKY_TEXTURE_PREFIX, ''
 
       if @skyTextureAvgColorCache[skyTextureName]
         return resolve @skyTextureAvgColorCache[skyTextureName]
@@ -274,12 +176,15 @@ export class WeatherEditor
         y := height - 1
         { r, g, b } := intToRGBA image.getPixelColor x, y
         // Format the vector to the engine format (color / 255)
-        colors := vector3(r, g, b).normalize().get() as Types.ColorVector3
+        colors := vector3(r, g, b).normalize()
         @skyTextureAvgColorCache[skyTextureName] = colors
         return resolve colors
       catch error
         return reject error
 
+  /**
+   * Clean up the sky textures directory after getting the average colors
+   */
   cleanUpSkyTextures(dirPath = @skyTexturesRoot)
     unless fs.existsSync @skyTexturesRoot
       throw new Error `Sky textures root not found: ${@skyTexturesRoot}`
@@ -293,47 +198,47 @@ export class WeatherEditor
           fs.unlinkSync filePath
     catch _error
 
+  /**
+   * Patch the weather files with the given iterator callback
+   */
   patch<TWeatherName extends Types.WeatherName, TTimeRange extends Types.WeatherTimeRange>(args: TPatchArgs<TWeatherName, TTimeRange>)
     { weatherName, timeRange, with: iteratorCb } := args
-    result := await @iterateOver weatherName, (def, time) =>
-      unless @inTimeRange time, timeRange then return
-      console.info 'Running for', weatherName, '|', time
-      iteratorCb def, time
-      @normalizeDef def
-    return @writeIterateResultToWeatherFile result
 
+    // A patch is only for a single weather file
+    @iterateOver weatherName, (def, time) =>
+      // Already filter the time range in here
+      // If no time range is passed then just don't filter them
+      if timeRange and not @inTimeRange time, timeRange then return
+      console.info 'Running for', weatherName, '|', time
+
+      normalizeMapEntries := Object.entries @normalizeMap
+
+      // Run the `with` patch function
+      iteratorCb def, time
+
+      // Normalize the values so that they're within their min/max ranges etc.
+      for [key, normalizer] of normalizeMapEntries
+        value := def[key]
+        if value is not undefined
+          def[key] = @normalizer[normalizer] def[key]
+          if def[key] is undefined
+            throw new Error `Normalizer "${normalizer}" returned undefined for "${key}"`
+    |> await
+    |> @writeIterateResultToWeatherFile
+
+  /**
+   * Fetch all weather names from the weathers directory
+   */
   fetchAllWeathersNames()
     length := LTX_EXT.length
     return fs.readdirSync @weathersDirPath
       .filter .endsWith LTX_EXT
       .map .slice 0, -length
 
-  private normalizeDef(def: Types.WeatherDefinition)
-    normalizeMapEntries := Object.entries @normalizeMap
-    normalized := Object.assign {}, def
-
-    for [key, normalizer] of normalizeMapEntries
-      value := normalized[key]
-      if value is not undefined
-        normalized[key] = @normalizer[normalizer] normalized[key]
-
-    return normalized
-
-  private inTimeRange(time: Types.WeatherTime, range: Types.WeatherTimeRange)
-    [timeHour, timeMinute] := time |> .split ':' |> .map Number
-    [[rangeStartHour, rangeStartMinute], [rangeEndHour, rangeEndMinute]] := range.map (time) => {
-      [hour, minute] := time.split ':'
-      return [(Number hour), (Number minute)]
-    }
-    if timeHour < rangeStartHour or timeHour > rangeEndHour
-      return false
-    if timeHour is rangeStartHour and timeMinute < rangeStartMinute
-      return false
-    if timeHour is rangeEndHour and timeMinute > rangeEndMinute
-      return false
-    return true
-
-  private iterateOver<TWeatherName extends Types.WeatherName>(weatherName: TWeatherName, iteratorCb: (def: Types.WeatherDefinition, time: string) => any): TIterateResult<TWeatherName>
+  /**
+   * Iterate over the weather file and run the iterator callback
+   */
+  iterateOver<TWeatherName extends Types.WeatherName>(weatherName: TWeatherName, iteratorCb: (def: Types.WeatherDefinition, time: string) => any): TIterateResult<TWeatherName>
     weather := await @parseLtxFile weatherName
     node .= weather
     while node
@@ -345,12 +250,35 @@ export class WeatherEditor
       weather,
     }
 
+  /**
+   * Check if the time is within the time range
+   */
+  private inTimeRange(time: Types.WeatherTime, range: Types.WeatherTimeRange)
+    [timeHour, timeMinute] := time |> .split ':' |> .map Number
+    [[rangeStartHour, rangeStartMinute], [rangeEndHour, rangeEndMinute]] := range.map (rangeTime) => {
+      [hour, minute] := rangeTime.split ':'
+      return [(Number hour), (Number minute)]
+    }
+    if timeHour < rangeStartHour or timeHour > rangeEndHour
+      return false
+    if timeHour is rangeStartHour and timeMinute < rangeStartMinute
+      return false
+    if timeHour is rangeEndHour and timeMinute > rangeEndMinute
+      return false
+    return true
+
+  /**
+   * Write the iterate result to the weather file
+   */
   private writeIterateResultToWeatherFile<TWeatherName extends Types.WeatherName>({ weatherName, weather }: TIterateResult<TWeatherName>)
     weatherFilePath := path.join @weathersDirPath, `${weatherName}${LTX_EXT}`
     formatted := @ltxParser.format weather
     unless @debug
       fs.writeFileSync weatherFilePath, formatted
 
+  /**
+   * Parse the LTX file and return the parsed object
+   */
   private parseLtxFile<TWeatherName extends Types.WeatherName>(weatherName: TWeatherName)
     weatherFilePath := path.join @weathersDirPath, `${weatherName}${LTX_EXT}`
     return @ltxParser.parse weatherFilePath

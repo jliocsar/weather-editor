@@ -1,2 +1,187 @@
+* as Types from ./typedefs.civet
+
 export function clamp(value: number, min: number, max: number)
-  return Math.min(Math.max(value, min), max)
+  return Math.min Math.max(value, min), max
+
+class CColorVector3
+  @(@r: number, @g: number, @b: number)
+
+  toArray()
+    [@r, @g, @b]
+
+  normalize()
+    @divide 255
+    return this
+
+  divide(x: number | Types.ColorVector3 | Types.ColorVector4, y?: number, z?: number)
+    r .= @r
+    g .= @g
+    b .= @b
+
+    if Array.isArray x
+      r /= x.0 or 1
+      g /= x.1 or 1
+      b /= x.2 or 1
+    else if y and z
+      r /= x
+      g /= y
+      b /= z
+    else
+      r /= x
+      g /= x
+      b /= x
+
+    @r = r as number
+    @g = g as number
+    @b = b as number
+
+    return this
+
+  multiply(x: number | Types.ColorVector3 | Types.ColorVector4, y?: number, z?: number)
+    r .= @r
+    g .= @g
+    b .= @b
+
+    if Array.isArray x
+      r *= x.0 or 1
+      g *= x.1 or 1
+      b *= x.2 or 1
+    else if y and z
+      r *= x
+      g *= y
+      b *= z
+    else
+      r *= x
+      g *= x
+      b *= x
+
+    @r = r as number
+    @g = g as number
+    @b = b as number
+
+    return this
+
+  subtract(x: number | Types.ColorVector3 | Types.ColorVector4, y?: number, z?: number)
+    r .= @r
+    g .= @g
+    b .= @b
+
+    if Array.isArray x
+      r -= x.0 or 1
+      g -= x.1 or 1
+      b -= x.2 or 1
+    else if y and z
+      r -= x
+      g -= y
+      b -= z
+    else
+      r -= x
+      g -= x
+      b -= x
+
+    @r = r as number
+    @g = g as number
+    @b = b as number
+
+    return this
+
+  sum(x: number | Types.ColorVector3 | Types.ColorVector4, y?: number, z?: number)
+    r .= @r
+    g .= @g
+    b .= @b
+
+    if Array.isArray x
+      r += x.0 or 1
+      g += x.1 or 1
+      b += x.2 or 1
+    else if y and z
+      r += x
+      g += y
+      b += z
+    else
+      r += x
+      g += x
+      b += x
+
+    @r = r as number
+    @g = g as number
+    @b = b as number
+
+    return this
+
+class CColorVector4 < CColorVector3
+  @(r: number, g: number, b: number, @a: number)
+    super r, g, b
+
+  toArray()
+    [@r, @g, @b, @a]
+
+  divide(x: number | Types.ColorVector3 | Types.ColorVector4, y?: number, z?: number, w?: number)
+    super.divide x, y, z
+
+    a .= @a
+
+    if Array.isArray x
+      a /= x.3 or 1
+    else if a
+      a /= w
+    else
+      a /= x
+
+    @a = a
+
+    return this
+
+  multiply(x: number | Types.ColorVector3 | Types.ColorVector4, y?: number, z?: number, w?: number)
+    super.multiply x, y, z
+
+    a .= @a
+
+    if Array.isArray x
+      a *= x.3 or 1
+    else if a
+      a *= w
+    else
+      a *= x
+
+    @a = a
+
+    return this
+
+  subtract(x: number | Types.ColorVector3 | Types.ColorVector4, y?: number, z?: number, w?: number)
+    super.subtract x, y, z
+
+    a .= @a
+
+    if Array.isArray x
+      a -= x.3 or 1
+    else if a
+      a -= w
+    else
+      a -= x
+
+    @a = a
+
+    return this
+
+  sum(x: number | Types.ColorVector3 | Types.ColorVector4, y?: number, z?: number, w?: number)
+    super.sum x, y, z
+
+    a .= @a
+
+    if Array.isArray x
+      a += x.3 or 1
+    else if a
+      a += w
+    else
+      a += x
+
+    @a = a
+
+    return this
+
+export function vector3(r: number, g: number, b: number)
+  new CColorVector3 r, g, b
+
+export function vector4(r: number, g: number, b: number, a: number)
+  new CColorVector4 r, g, b, a
