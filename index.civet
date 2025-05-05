@@ -1,15 +1,23 @@
 { WeatherEditor, Types } from ./editor.civet
 
 root := "./examples"
-timeRange: Types.WeatherTimeRange := ['09:00', '18:59']
+timeRange: Types.WeatherTimeRange := ['00:00', '23:59']
 
 weatherEditor := new WeatherEditor { root }
 
-weatherName: Types.WeatherName := 'w_clear1'
-// weatherNames := weatherEditor.fetchAllWeathersNames()
-// for weatherName of weatherNames
-await weatherEditor.patch {
-  weatherName
-  timeRange
-  with: (def) => {}
-}
+weatherNames := weatherEditor.fetchAllWeathersNames()
+for weatherName of weatherNames
+  await weatherEditor.patch {
+    weatherName
+    timeRange
+    with: (def) => {
+      console.log def
+    }
+  }
+
+// weatherName: Types.WeatherName := 'w_clear1'
+// await weatherEditor.patch {
+//   weatherName
+//   timeRange
+//   with: (def) => {}
+// }
